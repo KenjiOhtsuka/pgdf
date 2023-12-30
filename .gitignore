@@ -1,0 +1,13 @@
+# for Intellij IDEA
+.idea
+pgdf.iml
+
+# for editable package
+pgdf.egg-info
+__pycache__
+
+# compiled packages
+dist
+
+# credentials
+.pypirc
