@@ -1,48 +1,17 @@
 import argparse
 import re
-import subprocess
-import termcolor
-import os
-import doctest
 import xlsxwriter
 from enum import Enum
 
-from pgdf.blame import FileBlame
-from pgdf.diff import Diff
-from .summary import Summary
+from pgdf.blame import FileBlame, LineBlame
+from pgdf.git import get_label, get_summary, get_diff, get_blame
 
-
-def get_label() -> str:
-    result = subprocess.run(['git', 'rev-parse', '--show-toplevel'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0:
-        print(result.stderr.decode('utf-8'))
-        exit(result.returncode)
-    path = result.stdout.decode('utf-8')
-    path = path.strip()
-    return os.path.basename(path)
-
-
-def get_summary(revision_1: str, revision_2: str) -> Summary:
-    result = subprocess.run(['git', 'diff', '--stat=200', revision_1, revision_2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0:
-        print(result.stderr.decode('utf-8'))
-        exit(result.returncode)
-    result_text = result.stdout.decode('utf-8')
-    return result_text
-
-
-def get_diff(revision_1: str, revision_2: str) -> Diff:
-    result = subprocess.run(['git', 'diff', revision_1, revision_2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if result.returncode != 0:
-        print(result.stderr.decode('utf-8'))
-        exit(result.returncode)
-    result_text = result.stdout.decode('utf-8')
-    return result_text
 
 class OutputFormat(Enum):
     EXCEL = 'excel'
     CSV = 'csv'
     TSV = 'tsv'
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -92,11 +61,14 @@ This is a tool to convert markdown file to excel.
 
     label = get_label()
 
-    before_line_num_column = 0
-    after_line_num_column = 1
-    code_column = 2
+    commit_number_column = 0
+    commit_author_column = commit_number_column + 1
+    commit_datetime_column = commit_author_column + 1
+    before_line_num_column = commit_datetime_column + 1
+    after_line_num_column = before_line_num_column + 1
+    code_column = after_line_num_column + 1
 
-    workbook = xlsxwriter.Workbook('test1.xlsx')
+    workbook = xlsxwriter.Workbook(f'diff_{revision_1}.{revision_2}.xlsx'.replace('/', '_'))
     # define formats
 
     class Format:
@@ -145,7 +117,19 @@ This is a tool to convert markdown file to excel.
 
             worksheet.write_string(row_index, 0, path, Format.BASIC)
             worksheet.write_number(row_index, 1, int(change), Format.BASIC)
-            worksheet.write_rich_string(row_index, 2, Format.FORE_GREEN, '+' * plus, Format.FORE_RED, '-' * minus)
+            args = []
+            if plus > 0:
+                args.append(Format.FORE_GREEN)
+                args.append('+' * plus)
+            if minus > 0:
+                args.append(Format.FORE_RED)
+                args.append('-' * minus)
+
+            print(args)
+            if len(args) > 2:
+                worksheet.write_rich_string(row_index, 2, *args)
+            else:
+                worksheet.write_string(row_index, 2, args[1], args[0])
         else:
             worksheet.write_string(row_index, 0, line, Format.BASIC)
 
@@ -185,11 +169,19 @@ This is a tool to convert markdown file to excel.
                 blame['after'] = FileBlame(path)
             worksheet.write_string(row_index, code_column, line, Format.FORE_GREEN_BOLD)
         elif line.startswith('+'):
+            line_blame = revision_2_blame[after_line_number]
+            worksheet.write_string(row_index, commit_number_column, line_blame.commit_hash, Format.GREEN)
+            worksheet.write_string(row_index, commit_author_column, line_blame.author, Format.GREEN)
+            worksheet.write_string(row_index, commit_datetime_column, line_blame.datetime, Format.GREEN)
             worksheet.write_string(row_index, before_line_num_column, '', Format.GREEN)
             worksheet.write_number(row_index, after_line_num_column, after_line_number, Format.GREEN)
             worksheet.write_string(row_index, code_column, line, Format.WRAP_GREEN)
             after_line_number += 1
         elif line.startswith('-'):
+            line_blame = revision_1_blame[before_line_number]
+            worksheet.write_string(row_index, commit_number_column, line_blame.commit_hash, Format.RED)
+            worksheet.write_string(row_index, commit_author_column, line_blame.author, Format.RED)
+            worksheet.write_string(row_index, commit_datetime_column, line_blame.datetime, Format.RED)
             worksheet.write_number(row_index, before_line_num_column, before_line_number, Format.RED)
             worksheet.write_string(row_index, after_line_num_column, '', Format.RED)
             worksheet.write_string(row_index, code_column, line, Format.WRAP_RED)
@@ -200,30 +192,37 @@ This is a tool to convert markdown file to excel.
             navigation = sr.group('navigation')
             part_name = sr.group('part_name')
 
-            sr = re.search(r'^@@ -(?P<before_range>(?P<before_line_number>\d+),?(?P<before_last_line_number>\d+)?) \+(?P<after_range>(?P<after_line_number>\d+),?(?P<after_last_line_number>\d+)?) @@$', navigation)
+            sr = re.search(r'^@@ -(?P<before_range>(?P<before_line_number>\d+),?(?P<before_line_volume>\d+)?) \+(?P<after_range>(?P<after_line_number>\d+),?(?P<after_line_volume>\d+)?) @@$', navigation)
             if sr:
                 pass
-            #sr = re.search(r'^@@ -(?P<before_line_number>\d+),?(?P<before_last_line_number>\d+)? \+(?P<after_line_number>\d+),?(?P<after_last_line_number>\d+)? @@$', navigation)
+            #sr = re.search(r'^@@ -(?P<before_line_number>\d+),?(?P<before_line_volume>\d+)? \+(?P<after_line_number>\d+),?(?P<after_line_volume>\d+)? @@$', navigation)
             before_range = sr.group('before_range')
             before_line_number = int(sr.group('before_line_number'))
-            before_last_line_number = sr.group('before_last_line_number')
-            before_last_line_number = before_line_number if before_last_line_number is None or before_last_line_number == '' else int(before_last_line_number)
+            before_line_volume = sr.group('before_line_volume')
+            before_line_volume = before_line_number if before_line_volume is None or before_line_volume == '' else int(before_line_volume)
             after_range = sr.group('after_range')
             after_line_number = int(sr.group('after_line_number'))
-            after_last_line_number = sr.group('after_last_line_number')
-            after_last_line_number = after_line_number if after_last_line_number is None or after_last_line_number == '' else int(after_last_line_number)
+            after_line_volume = sr.group('after_line_volume')
+            after_line_volume = after_line_number if after_line_volume is None or after_line_volume == '' else int(after_line_volume)
             if part_name is None or part_name.isspace() or part_name == '':
-                worksheet.write_rich_string(row_index, code_column, Format.FORE_BLUE, str(navigation))
+                worksheet.write_string(row_index, code_column, str(navigation), Format.FORE_BLUE)
             else:
                 worksheet.write_rich_string(row_index, code_column, Format.FORE_BLUE, str(navigation), Format.BASIC, str(part_name))
 
             # get the file blame
-            result = subprocess.run(['git', 'blame', '-L', before_range.replace(',', ',+'), revision_1, '--', blame['before'].path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if result.returncode != 0:
-                print(result.stderr.decode('utf-8'))
-                exit(result.returncode)
-            result_text = result.stdout.decode('utf-8')
-            print(result_text)
+            if blame['before']:
+                result_text = get_blame(revision_1, blame['before'].path, before_line_number, before_line_volume)
+                revision_1_blame = {
+                    b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
+                }
+
+            if blame['after']:
+                result_text = get_blame(revision_2, blame['after'].path, after_line_number, after_line_volume)
+                revision_2_blame = {
+                    b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
+                }
+
+
             # to get revision comment
             # git show --format="%s" -s revision_1
 
@@ -251,6 +250,16 @@ This is a tool to convert markdown file to excel.
 # os.execlp("git diff --stat", args)
 
 if __name__ == '__main__':
+    import traceback
+    import warnings
+    def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
+
+        log = file if hasattr(file,'write') else sys.stderr
+        traceback.print_stack(file=log)
+        log.write(warnings.formatwarning(message, category, filename, lineno, line))
+
+    warnings.simplefilter("always")
+    warnings.showwarning = warn_with_traceback
     main()
 
 # TODO:
