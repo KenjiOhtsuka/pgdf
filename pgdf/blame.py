@@ -40,7 +40,6 @@ class LineBlame:
         >>> blame.line_number
         1085
 
-
         :param line: like '0e2b5b3c (Kenji Otsuka 2019-11-04 23:04:00 +0900  1) import re'
         :return:
         """

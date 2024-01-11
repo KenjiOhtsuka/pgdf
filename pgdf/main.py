@@ -4,13 +4,29 @@ import xlsxwriter
 from enum import Enum
 
 from pgdf.blame import FileBlame, LineBlame
-from pgdf.git import get_label, get_summary, get_diff, get_blame
+from pgdf.git import get_label, get_summary, get_diff, get_blame, get_log
 
 
 class OutputFormat(Enum):
     EXCEL = 'excel'
     CSV = 'csv'
     TSV = 'tsv'
+
+class Column:
+    def __init__(self, index: int, width: int = None):
+        """
+
+        :param index: column position that starts from 0.
+        :param width:
+        """
+        self.index = index
+        self.width = width
+
+    def __str__(self):
+        return f'{self.name}(width={self.width})'
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def main() -> None:
@@ -61,15 +77,21 @@ This is a tool to convert markdown file to excel.
 
     label = get_label()
 
-    commit_number_column = 0
-    commit_author_column = commit_number_column + 1
-    commit_datetime_column = commit_author_column + 1
-    before_line_num_column = commit_datetime_column + 1
-    after_line_num_column = before_line_num_column + 1
-    code_column = after_line_num_column + 1
+    output_file_path = f'diff_{revision_1}..{revision_2}.xlsx'.replace('/', '_')
+    workbook = xlsxwriter.Workbook(output_file_path)
 
-    workbook = xlsxwriter.Workbook(f'diff_{revision_1}.{revision_2}.xlsx'.replace('/', '_'))
-    # define formats
+    commit_hash_column = Column(0, 10)
+    commit_author_column = Column(commit_hash_column.index + 1, 10)
+    commit_datetime_column = Column(commit_author_column.index + 1, 15)
+    commit_comment_column = Column(commit_datetime_column.index + 1, 20)
+    before_line_num_column = Column(commit_comment_column.index + 1, 5)
+    after_line_num_column = Column(before_line_num_column.index + 1, 5)
+    code_column = Column(after_line_num_column.index + 1, 100)
+    columns = [
+        commit_hash_column, commit_author_column, commit_datetime_column, commit_comment_column,
+        before_line_num_column, after_line_num_column, code_column
+    ]
+
 
     class Format:
         @staticmethod
@@ -78,30 +100,47 @@ This is a tool to convert markdown file to excel.
             return workbook.add_format(dict(basic_format_properties, **kwargs))
 
         BASIC = build_format({})
+        """Basic format. Just Consolas font."""
         WRAP_BASIC = build_format({'text_wrap': True})
+        """Basic format with text wrap."""
         BOLD = build_format({'bold': True})
+        """Basic format with bold."""
         WRAP_BOLD = build_format({'text_wrap': True, 'bold': True})
+        """Basic format with text wrap and bold."""
         RED = build_format({'font_color': 'red', 'bg_color': '#FFCCCC'})
+        """Basic format with red font and light red background."""
         WRAP_RED = build_format({'text_wrap': True, 'font_color': 'red', 'bg_color': '#FFCCCC'})
+        """Basic format with text wrap, red font and light red background."""
         GREEN = build_format({'font_color': 'green', 'bg_color': '#CCFFCC'})
+        """Basic format with green font and light green background."""
         WRAP_GREEN = build_format({'text_wrap': True, 'font_color': 'green', 'bg_color': '#CCFFCC'})
+        """Basic format with text wrap, green font and light green background."""
         FORE_BLUE = build_format({'font_color': 'blue'})
+        """Basic format with blue font."""
         WRAP_FORE_BLUE = build_format({'text_wrap': True, 'font_color': 'blue'})
+        """Basic format with text wrap and blue font."""
         FORE_GREEN = build_format({'font_color': 'green'})
+        """Basic format with green font."""
         WRAP_FORE_GREEN = build_format({'text_wrap': True, 'font_color': 'green'})
+        """Basic format with text wrap and green font."""
         FORE_GREEN_BOLD = build_format({'font_color': 'green', 'bold': True})
+        """Basic format with green font and bold."""
         WRAP_FORE_GREEN_BOLD = build_format({'text_wrap': True, 'font_color': 'green', 'bold': True})
+        """Basic format with text wrap, green font and bold."""
         FORE_RED = build_format({'font_color': 'red'})
+        """Basic format with red font."""
         WRAP_FORE_RED = build_format({'text_wrap': True, 'font_color': 'red'})
+        """Basic format with text wrap and red font."""
         FORE_RED_BOLD = build_format({'font_color': 'red', 'bold': True})
+        """Basic format with red font and bold."""
         WRAP_FORE_RED_BOLD = build_format({'text_wrap': True, 'font_color': 'red', 'bold': True})
+        """Basic format with text wrap, red font and bold."""
 
     # Write Summary
-    worksheet = workbook.add_worksheet()
+    worksheet = workbook.add_worksheet("Summary")
     worksheet.set_column(0, 0, 60)
 
     result_text = get_summary(revision_1, revision_2)
-    # summary = Summary.parse(result_text)
 
     worksheet.write_string(0, 0, f'Diff {revision_1} {revision_2}', Format.BASIC)
     row_index = 2
@@ -125,19 +164,34 @@ This is a tool to convert markdown file to excel.
                 args.append(Format.FORE_RED)
                 args.append('-' * minus)
 
-            print(args)
             if len(args) > 2:
                 worksheet.write_rich_string(row_index, 2, *args)
             else:
                 worksheet.write_string(row_index, 2, args[1], args[0])
-        else:
-            worksheet.write_string(row_index, 0, line, Format.BASIC)
+            row_index += 1
+            continue
 
+        rm = re.match(r'^\s(?P<path>.*?)\s+\|\s+Bin\s+(?P<before>\d+) -> (?P<after>\d+) bytes\s*$', line)
+        if rm:
+            worksheet.write_string(row_index, 0, path, Format.BASIC)
+            worksheet.write_string(row_index, 1, 'Bin', Format.BASIC)
+            worksheet.write_rich_string(
+                row_index, 2,
+                Format.FORE_RED, rm.group("before"),
+                Format.BASIC, ' -> ',
+                Format.GREEN, rm.group("after"),
+                Format.BASIC, ' bytes'
+            )
+            row_index += 1
+            continue
+
+        worksheet.write_string(row_index, 0, line, Format.BASIC)
         row_index += 1
 
     # Write Diff
-    worksheet = workbook.add_worksheet()
-    worksheet.set_column(code_column, code_column, 100)
+    worksheet = workbook.add_worksheet("Diff")
+    for column in columns:
+        worksheet.set_column(column.index, column.index, column.width)
 
     result_text = get_diff(revision_1, revision_2)
 
@@ -147,11 +201,13 @@ This is a tool to convert markdown file to excel.
     worksheet.write_string(0, 0, f'Diff {revision_1} {revision_2}', Format.BASIC)
 
     row_index = 1
+    revisions = set()
+    logs = {}
 
     for line in result_text.splitlines():
         if line.startswith('diff'):
             row_index += 1
-            worksheet.write_string(row_index, code_column, line, Format.BOLD)
+            worksheet.write_string(row_index, code_column.index, line, Format.BOLD)
             blame = {
                 'before': None,
                 'after': None
@@ -161,30 +217,32 @@ This is a tool to convert markdown file to excel.
             if rm:
                 path = rm.group('file_path').strip()
                 blame['before'] = FileBlame(path)
-            worksheet.write_string(row_index, code_column, line, Format.FORE_RED_BOLD)
+            worksheet.write_string(row_index, code_column.index, line, Format.FORE_RED_BOLD)
         elif line.startswith('+++'):
             rm = re.match(r'^\+\+\+ b/(?P<file_path>.*)$', line)
             if rm:
                 path = rm.group('file_path').strip()
                 blame['after'] = FileBlame(path)
-            worksheet.write_string(row_index, code_column, line, Format.FORE_GREEN_BOLD)
+            worksheet.write_string(row_index, code_column.index, line, Format.FORE_GREEN_BOLD)
         elif line.startswith('+'):
             line_blame = revision_2_blame[after_line_number]
-            worksheet.write_string(row_index, commit_number_column, line_blame.commit_hash, Format.GREEN)
-            worksheet.write_string(row_index, commit_author_column, line_blame.author, Format.GREEN)
-            worksheet.write_string(row_index, commit_datetime_column, line_blame.datetime, Format.GREEN)
-            worksheet.write_string(row_index, before_line_num_column, '', Format.GREEN)
-            worksheet.write_number(row_index, after_line_num_column, after_line_number, Format.GREEN)
-            worksheet.write_string(row_index, code_column, line, Format.WRAP_GREEN)
+            worksheet.write_string(row_index, commit_hash_column.index, line_blame.commit_hash, Format.GREEN)
+            worksheet.write_string(row_index, commit_author_column.index, line_blame.author, Format.GREEN)
+            worksheet.write_string(row_index, commit_datetime_column.index, line_blame.datetime, Format.GREEN)
+            worksheet.write_string(row_index, commit_comment_column.index, logs[line_blame.commit_hash], Format.GREEN)
+            worksheet.write_string(row_index, before_line_num_column.index, '', Format.GREEN)
+            worksheet.write_number(row_index, after_line_num_column.index, after_line_number, Format.GREEN)
+            worksheet.write_string(row_index, code_column.index, line, Format.WRAP_GREEN)
             after_line_number += 1
         elif line.startswith('-'):
             line_blame = revision_1_blame[before_line_number]
-            worksheet.write_string(row_index, commit_number_column, line_blame.commit_hash, Format.RED)
-            worksheet.write_string(row_index, commit_author_column, line_blame.author, Format.RED)
-            worksheet.write_string(row_index, commit_datetime_column, line_blame.datetime, Format.RED)
-            worksheet.write_number(row_index, before_line_num_column, before_line_number, Format.RED)
-            worksheet.write_string(row_index, after_line_num_column, '', Format.RED)
-            worksheet.write_string(row_index, code_column, line, Format.WRAP_RED)
+            worksheet.write_string(row_index, commit_hash_column.index, line_blame.commit_hash, Format.RED)
+            worksheet.write_string(row_index, commit_author_column.index, line_blame.author, Format.RED)
+            worksheet.write_string(row_index, commit_datetime_column.index, line_blame.datetime, Format.RED)
+            worksheet.write_string(row_index, commit_comment_column.index, logs[line_blame.commit_hash], Format.RED)
+            worksheet.write_number(row_index, before_line_num_column.index, before_line_number, Format.RED)
+            worksheet.write_string(row_index, after_line_num_column.index, '', Format.RED)
+            worksheet.write_string(row_index, code_column.index, line, Format.WRAP_RED)
             before_line_number += 1
         elif line.startswith('@@'):
             row_index += 1
@@ -193,21 +251,17 @@ This is a tool to convert markdown file to excel.
             part_name = sr.group('part_name')
 
             sr = re.search(r'^@@ -(?P<before_range>(?P<before_line_number>\d+),?(?P<before_line_volume>\d+)?) \+(?P<after_range>(?P<after_line_number>\d+),?(?P<after_line_volume>\d+)?) @@$', navigation)
-            if sr:
-                pass
-            #sr = re.search(r'^@@ -(?P<before_line_number>\d+),?(?P<before_line_volume>\d+)? \+(?P<after_line_number>\d+),?(?P<after_line_volume>\d+)? @@$', navigation)
-            before_range = sr.group('before_range')
+
             before_line_number = int(sr.group('before_line_number'))
             before_line_volume = sr.group('before_line_volume')
             before_line_volume = before_line_number if before_line_volume is None or before_line_volume == '' else int(before_line_volume)
-            after_range = sr.group('after_range')
             after_line_number = int(sr.group('after_line_number'))
             after_line_volume = sr.group('after_line_volume')
             after_line_volume = after_line_number if after_line_volume is None or after_line_volume == '' else int(after_line_volume)
             if part_name is None or part_name.isspace() or part_name == '':
-                worksheet.write_string(row_index, code_column, str(navigation), Format.FORE_BLUE)
+                worksheet.write_string(row_index, code_column.index, str(navigation), Format.FORE_BLUE)
             else:
-                worksheet.write_rich_string(row_index, code_column, Format.FORE_BLUE, str(navigation), Format.BASIC, str(part_name))
+                worksheet.write_rich_string(row_index, code_column.index, Format.FORE_BLUE, str(navigation), Format.BASIC, str(part_name))
 
             # get the file blame
             if blame['before']:
@@ -222,45 +276,32 @@ This is a tool to convert markdown file to excel.
                     b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
                 }
 
+            current_revisions = set( b.commit_hash for b in revision_2_blame.values() ).union(
+                set( b.commit_hash for b in revision_1_blame.values() )
+            )
+            new_revisions = current_revisions - revisions
 
-            # to get revision comment
-            # git show --format="%s" -s revision_1
+            for revision in new_revisions:
+                logs[revision] = re.sub(r'^"(.*)"$', r'\1', get_log(revision).strip())
+
+            revisions = revisions.union(new_revisions)
 
         elif line.startswith(' '):
-            worksheet.write_number(row_index, after_line_num_column, after_line_number, Format.BASIC)
-            worksheet.write_number(row_index, before_line_num_column, before_line_number, Format.BASIC)
-            worksheet.write_string(row_index, code_column, line, Format.WRAP_BASIC)
+            worksheet.write_number(row_index, after_line_num_column.index, after_line_number, Format.BASIC)
+            worksheet.write_number(row_index, before_line_num_column.index, before_line_number, Format.BASIC)
+            worksheet.write_string(row_index, code_column.index, line, Format.WRAP_BASIC)
             before_line_number += 1
             after_line_number += 1
         else:
-            worksheet.write_string(row_index, code_column, line, Format.WRAP_BASIC)
+            worksheet.write_string(row_index, code_column.index, line, Format.WRAP_BASIC)
 
         row_index += 1
 
     workbook.close()
 
-    #print(result_text)
+    print(f'{output_file_path} was generated.')
 
-    # result = subprocess.run(['git', 'blame', revision_1, '--', file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # if result.returncode != 0:
-    #     print(result.stderr.decode('utf-8'))
-    #     exit(result.returncode)
-
-
-# os.execlp("git diff --stat", args)
 
 if __name__ == '__main__':
-    import traceback
-    import warnings
-    def warn_with_traceback(message, category, filename, lineno, file=None, line=None):
-
-        log = file if hasattr(file,'write') else sys.stderr
-        traceback.print_stack(file=log)
-        log.write(warnings.formatwarning(message, category, filename, lineno, line))
-
-    warnings.simplefilter("always")
-    warnings.showwarning = warn_with_traceback
     main()
 
-# TODO:
-#   * font configuration

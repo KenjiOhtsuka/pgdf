@@ -37,3 +37,12 @@ def get_blame(revision: str, file_path: str, start_line_number: int, volume: int
         exit(result.returncode)
     result_text = result.stdout.decode('utf-8')
     return result_text
+
+
+def get_log(revision: str):
+    result = subprocess.run(['git', 'show', '--format="%s"', '-s', revision], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        print(result.stderr.decode('utf-8'))
+        exit(result.returncode)
+    result_text = result.stdout.decode('utf-8')
+    return result_text
