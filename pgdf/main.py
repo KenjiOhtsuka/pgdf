@@ -266,15 +266,27 @@ This is a tool to convert markdown file to excel.
             # get the file blame
             if blame['before']:
                 result_text = get_blame(revision_1, blame['before'].path, before_line_number, before_line_volume)
+                # print("=======")
+                # print(blame['after'].path)
+                # print(result_text)
+                # print(result_text.splitlines())
                 revision_1_blame = {
                     b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
                 }
+            else:
+                revision_1_blame = {}
 
             if blame['after']:
                 result_text = get_blame(revision_2, blame['after'].path, after_line_number, after_line_volume)
+                # print("=======")
+                # print(blame['after'].path)
+                # print(result_text)
+                # print(result_text.splitlines())
                 revision_2_blame = {
                     b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
                 }
+            else:
+                revision_2_blame = {}
 
             current_revisions = set( b.commit_hash for b in revision_2_blame.values() ).union(
                 set( b.commit_hash for b in revision_1_blame.values() )

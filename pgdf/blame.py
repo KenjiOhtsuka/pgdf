@@ -44,7 +44,7 @@ class LineBlame:
         :return:
         """
         # print(line)
-        m = re.match(r'^\s*(?P<commit_hash>[0-9a-f]{6,40})\s+\((?P<author>.+)\s+(?P<datetime>(?P<date>[-\d]+?) (?P<time>[:\d]*?) (?P<timezone>.*?))\s+(?P<line_number>\d+)\)\s+(?P<line>.*)$', line)
+        m = re.match(r'^\s*(?P<commit_hash>[\^0-9a-f]{6,40})\s+(.+\s+){0,1}\((?P<author>.+)\s+(?P<datetime>(?P<date>[-\d]+?) (?P<time>[:\d]*?) (?P<timezone>.*?))\s+(?P<line_number>\d+)\)\s+(?P<line>.*)$', line)
         if m:
             commit_hash = m.group('commit_hash')
             author = m.group('author')
@@ -55,6 +55,8 @@ class LineBlame:
             line_number = int(m.group('line_number'))
             line = m.group('line')
             return LineBlame(commit_hash, author, datetime, line_number, line)
+        else:
+            print('Error: {}'.format(line))
         return None
 
 
