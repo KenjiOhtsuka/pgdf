@@ -23,7 +23,7 @@ class Column:
         self.width = width
 
     def __str__(self):
-        return f'{self.name}(width={self.width})'
+        return f'{self.index}(width={self.width})'
 
     def __repr__(self):
         return self.__str__()
