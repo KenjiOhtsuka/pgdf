@@ -55,9 +55,8 @@ class LineBlame:
             line_number = int(m.group('line_number'))
             line = m.group('line')
             return LineBlame(commit_hash, author, datetime, line_number, line)
-        else:
-            print('Error: {}'.format(line))
-        return None
+
+        raise Exception('The blame line could not be parsed: {}'.format(line))
 
 
 if __name__ == '__main__':
