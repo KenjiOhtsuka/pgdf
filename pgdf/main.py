@@ -34,18 +34,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter,
         description="""
-This is a tool to convert markdown file to excel.
+This is a tool to summarize git diff into an Excel file.
 """,
         epilog="""
 == Example Use Case ==
 
-# Initialize the directory
-% pgdf init .
-
-# Create some markdown files in the directory 
-
-# Build the Excel file
-% pgdf build .
+$ pgdf 09c03f56 93496ef3
+$ pgdf 09c03f56 93496ef3 dir/path file/path
+$ pgdf origin/main feature/something
 """
     )
     parser.add_argument('revision_1', help='The first branch, tag name or revision to be compared')

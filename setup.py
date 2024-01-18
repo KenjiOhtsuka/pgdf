@@ -30,9 +30,9 @@ setup(
     license='MIT',
     author='Kenji Otsuka',
     author_email='kok.fdcm@gmail.com',
-    description='A tool to convert markdown file to excel.',
+    description='Tool built with python to summarize git diff into an Excel file.',
     long_description=long_description,
-    url='https://github.com/KenjiOhtsuka/pgdf',
+    #url='https://github.com/KenjiOhtsuka/pgdf',
     include_package_data=True,
     # entry_points='''
     #     [console_scripts]

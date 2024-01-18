@@ -84,7 +84,7 @@ Go to the Git repository directory, then:
 
     $ pgdf 09c03f56 93496ef3
     $ pgdf 09c03f56 93496ef3 dir/path file/path
-    $ pgdf feature/something origin/main
+    $ pgdf origin/main feature/something
 
 It generates an Excel file that contains summary of the differences.
 
