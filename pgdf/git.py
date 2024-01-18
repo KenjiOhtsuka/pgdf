@@ -12,8 +12,8 @@ def get_label() -> str:
     return os.path.basename(path)
 
 
-def get_summary(revision_1: str, revision_2: str) -> str:
-    result = subprocess.run(['git', 'diff', '--stat=200', revision_1, revision_2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+def get_summary(revision_1: str, revision_2: str, paths: list[str]) -> str:
+    result = subprocess.run(['git', 'diff', '--stat=200', revision_1, revision_2] + paths, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         print(result.stderr.decode('utf-8'))
         exit(result.returncode)
@@ -21,7 +21,7 @@ def get_summary(revision_1: str, revision_2: str) -> str:
     return result_text
 
 
-def get_diff(revision_1: str, revision_2: str) -> str:
+def get_diff(revision_1: str, revision_2: str, paths: list[str]) -> str:
     result = subprocess.run(['git', 'diff', revision_1, revision_2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         print(result.stderr.decode('utf-8'))

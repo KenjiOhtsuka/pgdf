@@ -12,6 +12,7 @@ class OutputFormat(Enum):
     CSV = 'csv'
     TSV = 'tsv'
 
+
 class Column:
     def __init__(self, index: int, width: int = None):
         """
@@ -49,31 +50,13 @@ This is a tool to convert markdown file to excel.
     )
     parser.add_argument('revision_1', help='The first branch, tag name or revision to be compared')
     parser.add_argument('revision_2', help='The first branch, tag name or revision be compared')
+    parser.add_argument("path", help="The file path to be compared", nargs='*')
 
     args = parser.parse_args()
 
     revision_1 = args.revision_1
     revision_2 = args.revision_2
-
-    # if args.directory:
-    #     if os.path.isabs(args.directory):
-    #         target_dir = args.directory
-    #     else:
-    #         target_dir = os.path.join(os.getcwd(), args.directory)
-    # else:
-    #     target_dir = os.getcwd()
-    #
-    # if args.command == 'init':
-    #     # create init file
-    #     i = Initializer(target_dir)
-    #     i.initialize()
-    # elif args.command == 'build':
-    #     # read the directory and save the Excel file
-    #     convert(target_dir, args.environment, args.format)
-    # elif args.command == 'inspect':
-    #     # read the directory and get into REPL
-    #     repl(target_dir, args.environment)
-
+    paths = args.path
 
     label = get_label()
 
@@ -140,9 +123,9 @@ This is a tool to convert markdown file to excel.
     worksheet = workbook.add_worksheet("Summary")
     worksheet.set_column(0, 0, 60)
 
-    result_text = get_summary(revision_1, revision_2)
+    result_text = get_summary(revision_1, revision_2, paths)
 
-    worksheet.write_string(0, 0, f'Diff {revision_1} {revision_2}', Format.BASIC)
+    worksheet.write_string(0, 0, (f'Diff {revision_1} {revision_2} ' + ' '.join(paths)).strip(), Format.BASIC)
     row_index = 2
 
     for line in result_text.splitlines():
@@ -193,12 +176,12 @@ This is a tool to convert markdown file to excel.
     for column in columns:
         worksheet.set_column(column.index, column.index, column.width)
 
-    result_text = get_diff(revision_1, revision_2)
+    result_text = get_diff(revision_1, revision_2, paths)
 
     before_line_number = 0
     after_line_number = 0
 
-    worksheet.write_string(0, 0, f'Diff {revision_1} {revision_2}', Format.BASIC)
+    worksheet.write_string(0, 0, (f'Diff {revision_1} {revision_2} ' + ' '.join(paths)).strip(), Format.BASIC)
 
     row_index = 1
     revisions = set()
@@ -266,10 +249,6 @@ This is a tool to convert markdown file to excel.
             # get the file blame
             if blame['before']:
                 result_text = get_blame(revision_1, blame['before'].path, before_line_number, before_line_volume)
-                # print("=======")
-                # print(blame['after'].path)
-                # print(result_text)
-                # print(result_text.splitlines())
                 revision_1_blame = {
                     b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
                 }
@@ -278,18 +257,14 @@ This is a tool to convert markdown file to excel.
 
             if blame['after']:
                 result_text = get_blame(revision_2, blame['after'].path, after_line_number, after_line_volume)
-                # print("=======")
-                # print(blame['after'].path)
-                # print(result_text)
-                # print(result_text.splitlines())
                 revision_2_blame = {
                     b.line_number: b for b in [LineBlame.parse(line) for line in result_text.splitlines()]
                 }
             else:
                 revision_2_blame = {}
 
-            current_revisions = set( b.commit_hash for b in revision_2_blame.values() ).union(
-                set( b.commit_hash for b in revision_1_blame.values() )
+            current_revisions = set(b.commit_hash for b in revision_2_blame.values()).union(
+                set(b.commit_hash for b in revision_1_blame.values())
             )
             new_revisions = current_revisions - revisions
 
