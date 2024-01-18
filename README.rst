@@ -141,10 +141,3 @@ PyPI package
 
 https://pypi.org/project/pgdf/
 
-
-
-************
-PyPI package
-************
-
-https://pypi.org/project/pgdf/
