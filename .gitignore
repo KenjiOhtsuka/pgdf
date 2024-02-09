@@ -12,3 +12,5 @@ dist
 # credentials
 .pypirc
 .diff
+
+/build

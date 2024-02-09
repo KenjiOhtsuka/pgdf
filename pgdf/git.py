@@ -22,7 +22,7 @@ def get_summary(revision_1: str, revision_2: str, paths: list[str]) -> str:
 
 
 def get_diff(revision_1: str, revision_2: str, paths: list[str]) -> str:
-    result = subprocess.run(['git', 'diff', revision_1, revision_2], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result = subprocess.run(['git', 'diff', revision_1, revision_2] + paths, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if result.returncode != 0:
         print(result.stderr.decode('utf-8'))
         exit(result.returncode)
