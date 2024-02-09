@@ -56,7 +56,7 @@ It is something like `git diff` for the specified commits, but it also contains 
 pgdf
 ====
 
-Tool built with **p**\ython to summarize **g**\ it **d**\ if\ **f**\
+Tool built with **p**\ython to summarize **g**\ it **d**\ if\ **f**.
 
 **********
 Motivation
