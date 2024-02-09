@@ -31,6 +31,7 @@ setup(
     author='Kenji Otsuka',
     author_email='kok.fdcm@gmail.com',
     description='Tool built with python to summarize git diff into an Excel file.',
+    long_description_content_type='text/x-rst',
     long_description=long_description,
     #url='https://github.com/KenjiOhtsuka/pgdf',
     include_package_data=True,
