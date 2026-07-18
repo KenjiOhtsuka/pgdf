@@ -19,7 +19,7 @@ setup(
     packages=find_packages(),
     # package_dir={'': 'pgdf'},
     # packages=find_packages(where='pgdf'),
-    version='0.0.2',
+    version='0.0.3',
     py_modules=['pgdf', 'pgdf.main', 'pgdf.summary'],
     install_requires=[
         'xlsxwriter',
